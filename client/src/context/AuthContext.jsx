@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect, useContext } from 'react';
 
 const AuthContext = createContext();
 
-export const API_BASE_URL = 'http://localhost:5000/apihttps://edu-pulse-z6w4.onrender.com';
+export const API_BASE_URL = 'https://edu-pulse-z6w4.onrender.com/api';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);

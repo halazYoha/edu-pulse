@@ -7,15 +7,24 @@ import {
 } from 'lucide-react';
 
 const Login = () => {
-  const { login } = useAuth();
-  const [email, setEmail]           = useState('');
-  const [password, setPassword]     = useState('');
-  const [showPwd, setShowPwd]       = useState(false);
-  const [error, setError]           = useState('');
-  const [errorShake, setErrorShake] = useState(false);
-  const [success, setSuccess]       = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [loadingRole, setLoadingRole] = useState(null); // which quick-login button is spinning
+  const { login, setAuthSession, settings } = useAuth();
+  const [email, setEmail]             = useState('');
+  const [password, setPassword]       = useState('');
+  const [showPwd, setShowPwd]         = useState(false);
+  const [error, setError]             = useState('');
+  const [errorShake, setErrorShake]   = useState(false);
+  const [success, setSuccess]         = useState(false);
+  const [submitting, setSubmitting]   = useState(false);
+  const [selectedRole, setSelectedRole] = useState('admin');
+  const [redirecting, setRedirecting] = useState(false);
+  const [redirectStatus, setRedirectStatus] = useState('');
+
+  const roles = [
+    { key: 'admin',   label: 'Admin',   color: '#ef4444', glow: 'rgba(239, 68, 68, 0.08)', borderGlow: 'rgba(239, 68, 68, 0.3)' },
+    { key: 'teacher', label: 'Teacher', color: '#10b981', glow: 'rgba(16, 185, 129, 0.08)', borderGlow: 'rgba(16, 185, 129, 0.3)' },
+    { key: 'student', label: 'Student', color: '#6366f1', glow: 'rgba(99, 102, 241, 0.08)', borderGlow: 'rgba(99, 102, 241, 0.3)' },
+    { key: 'parent',  label: 'Parent',  color: '#f59e0b', glow: 'rgba(245, 158, 11, 0.08)', borderGlow: 'rgba(245, 158, 11, 0.3)' },
+  ];
 
   /* ── helpers ── */
   const triggerError = (msg) => {
@@ -27,22 +36,52 @@ const Login = () => {
     });
   };
 
-  const doLogin = async (loginEmail, loginPassword, roleKey = null) => {
+  const renderRoleIcon = (roleKey, size = 18) => {
+    switch (roleKey) {
+      case 'admin':   return <Shield size={size} />;
+      case 'teacher': return <BookOpen size={size} />;
+      case 'student': return <GraduationCap size={size} />;
+      case 'parent':  return <Users size={size} />;
+      default:        return null;
+    }
+  };
+
+  const doLogin = async (loginEmail, loginPassword) => {
     setError('');
     setErrorShake(false);
     setSuccess(false);
-
-    if (roleKey) setLoadingRole(roleKey);
-    else setSubmitting(true);
+    setSubmitting(true);
 
     try {
-      await login(loginEmail, loginPassword);
+      const data = await login(loginEmail, loginPassword, selectedRole);
+      
+      // Perform role verification
+      if (data.user.role !== selectedRole) {
+        throw new Error(`Access denied: The credentials provided do not belong to the ${selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)} portal.`);
+      }
+
       setSuccess(true);
-      // AuthContext handles redirect after login, so we just show brief success
+      setRedirecting(true);
+      setRedirectStatus('Verifying credentials...');
+
+      setTimeout(() => {
+        setRedirectStatus('Authorizing portal role...');
+      }, 700);
+
+      setTimeout(() => {
+        setRedirectStatus('Loading workspace modules...');
+      }, 1400);
+
+      setTimeout(() => {
+        setAuthSession(data.token, data.user);
+      }, 2000);
+
     } catch (err) {
       const msg = err.message || '';
       if (msg.toLowerCase().includes('invalid') || msg.toLowerCase().includes('email') || msg.toLowerCase().includes('password')) {
         triggerError('Incorrect email or password. Please try again.');
+      } else if (msg.toLowerCase().includes('access denied')) {
+        triggerError(msg);
       } else if (msg.toLowerCase().includes('server') || msg.toLowerCase().includes('500')) {
         triggerError('Server error. Please try again in a moment.');
       } else if (msg.toLowerCase().includes('network') || msg.toLowerCase().includes('fetch')) {
@@ -50,9 +89,7 @@ const Login = () => {
       } else {
         triggerError(msg || 'Login failed. Please try again.');
       }
-    } finally {
-      if (roleKey) setLoadingRole(null);
-      else setSubmitting(false);
+      setSubmitting(false);
     }
   };
 
@@ -63,14 +100,7 @@ const Login = () => {
     await doLogin(email.trim(), password);
   };
 
-  const quickLogins = [
-    { key: 'admin',   email: 'admin@edupulse.com',          label: 'Admin',   icon: <Shield size={15} />,        color: '#ef4444' },
-    { key: 'teacher', email: 'teacher.smith@edupulse.com',  label: 'Teacher', icon: <BookOpen size={15} />,     color: '#10b981' },
-    { key: 'student', email: 'student.alex@edupulse.com',   label: 'Student', icon: <GraduationCap size={15} />,color: '#6366f1' },
-    { key: 'parent',  email: 'parent.john@edupulse.com',    label: 'Parent',  icon: <Users size={15} />,         color: '#f59e0b' },
-  ];
-
-  const isAnyLoading = submitting || loadingRole !== null;
+  const emailPlaceholder = `e.g. ${selectedRole}@school.com`;
 
   return (
     <div style={styles.loginContainer}>
@@ -78,140 +108,183 @@ const Login = () => {
       <div style={styles.glowBlob1} />
       <div style={styles.glowBlob2} />
 
-      <div style={styles.loginCard} className="glass-card animate-fade-in">
-
-        {/* ── Header ── */}
-        <div style={styles.header}>
-          <div style={styles.logoIcon}>
-            <School size={28} color="#6366f1" />
-          </div>
-          <h1 style={styles.title}>EduPulse ERP</h1>
-          <p style={styles.subtitle}>Sign in to access the management portal</p>
-        </div>
-
-        {/* ── Error Banner ── */}
-        {error && (
-          <div
-            style={styles.errorBox}
-            className={errorShake ? 'error-shake' : ''}
-          >
-            <AlertCircle size={15} style={{ flexShrink: 0 }} />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {/* ── Success Banner ── */}
-        {success && (
-          <div style={styles.successBox}>
-            <CheckCircle size={15} style={{ flexShrink: 0 }} />
-            <span>Authentication successful — redirecting…</span>
-          </div>
-        )}
-
-        {/* ── Login Form ── */}
-        <form onSubmit={handleSubmit} style={styles.form} noValidate>
-          <div className="form-group">
-            <label className="form-label" htmlFor="email">Email Address</label>
-            <input
-              type="email"
-              id="email"
-              className="form-control"
-              placeholder="e.g. admin@edupulse.com"
-              value={email}
-              onChange={(e) => { setEmail(e.target.value); setError(''); }}
-              disabled={isAnyLoading}
-              autoComplete="email"
-              style={styles.input}
-            />
-          </div>
-
-          <div className="form-group" style={{ position: 'relative' }}>
-            <label className="form-label" htmlFor="password">Password</label>
-            <div style={styles.pwdWrapper}>
-              <input
-                type={showPwd ? 'text' : 'password'}
-                id="password"
-                className="form-control"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => { setPassword(e.target.value); setError(''); }}
-                disabled={isAnyLoading}
-                autoComplete="current-password"
-                style={{ ...styles.input, paddingRight: '44px' }}
+      {redirecting ? (
+        /* ── Fullscreen circular progress loading screen ── */
+        <div style={styles.fullscreenLoader}>
+          <div style={styles.spinnerWrapperLarge}>
+            <svg style={styles.svgRingLarge} width="120" height="120" viewBox="0 0 120 120">
+              <circle
+                cx="60"
+                cy="60"
+                r="52"
+                stroke="rgba(255, 255, 255, 0.03)"
+                strokeWidth="6"
+                fill="transparent"
               />
-              <button
-                type="button"
-                onClick={() => setShowPwd(p => !p)}
-                style={styles.eyeBtn}
-                tabIndex={-1}
-                aria-label={showPwd ? 'Hide password' : 'Show password'}
-              >
-                {showPwd
-                  ? <EyeOff size={17} color="#6b7280" />
-                  : <Eye    size={17} color="#6b7280" />
-                }
-              </button>
+              <circle
+                cx="60"
+                cy="60"
+                r="52"
+                stroke={roles.find(r => r.key === selectedRole)?.color || '#6366f1'}
+                strokeWidth="6"
+                fill="transparent"
+                strokeDasharray="326.72"
+                strokeDashoffset="326.72"
+                className="animate-progress-fill"
+                style={{
+                  transform: 'rotate(-90deg)',
+                  transformOrigin: '50% 50%',
+                }}
+              />
+            </svg>
+            <div style={{
+              ...styles.spinnerCenterIconLarge,
+              color: roles.find(r => r.key === selectedRole)?.color || '#6366f1'
+            }}>
+              {renderRoleIcon(selectedRole, 32)}
             </div>
           </div>
-
-          <button
-            type="submit"
-            className="btn btn-primary"
-            style={styles.submitBtn}
-            disabled={isAnyLoading}
-          >
-            {submitting ? (
-              <>
-                <Loader2 size={17} style={styles.spinner} />
-                Authenticating…
-              </>
-            ) : (
-              <>
-                Sign In
-                <ArrowRight size={16} />
-              </>
-            )}
-          </button>
-        </form>
-
-        {/* ── Divider ── */}
-        <div style={styles.dividerRow}>
-          <div style={styles.dividerLine} />
-          <span style={styles.dividerText}>Demo Quick Login</span>
-          <div style={styles.dividerLine} />
+          
+          <h2 style={styles.redirectTitleLarge}>Loading {settings.school_name || 'EduPulse ERP'} Portal...</h2>
+          <p style={styles.redirectSubLarge}>{redirectStatus}</p>
         </div>
+      ) : (
+        <div style={styles.loginCard} className="glass-card animate-fade-in">
+          {/* ── Header ── */}
+          <div style={styles.header}>
+            <div style={styles.logoIcon}>
+              <School size={28} color="#6366f1" />
+            </div>
+            <h1 style={styles.title}>{settings.school_name || 'EduPulse ERP'}</h1>
+            <p style={styles.subtitle}>Sign in to access the management portal</p>
+          </div>
 
-        {/* ── Quick Login Buttons ── */}
-        <div style={styles.quickLoginGrid}>
-          {quickLogins.map(({ key, email: qEmail, label, icon, color }) => {
-            const isThisLoading = loadingRole === key;
-            return (
-              <button
-                key={key}
-                onClick={() => doLogin(qEmail, 'password123', key)}
-                className="btn btn-secondary"
-                style={styles.quickBtn}
-                disabled={isAnyLoading}
-                title={`Demo login as ${label}`}
-              >
-                {isThisLoading ? (
-                  <Loader2 size={15} style={{ ...styles.spinner, color }} />
-                ) : (
-                  <span style={{ color }}>{icon}</span>
-                )}
-                <span style={{ fontWeight: isThisLoading ? '400' : '600' }}>
-                  {isThisLoading ? 'Signing in…' : label}
-                </span>
-              </button>
-            );
-          })}
+          {/* ── Error Banner ── */}
+          {error && (
+            <div
+              style={styles.errorBox}
+              className={errorShake ? 'error-shake' : ''}
+            >
+              <AlertCircle size={15} style={{ flexShrink: 0 }} />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* ── Success Banner ── */}
+          {success && (
+            <div style={styles.successBox}>
+              <CheckCircle size={15} style={{ flexShrink: 0 }} />
+              <span>Authentication successful — redirecting…</span>
+            </div>
+          )}
+
+          {/* ── Login Form ── */}
+          <form onSubmit={handleSubmit} style={styles.form} noValidate>
+            <div className="form-group">
+              <label className="form-label" htmlFor="email">Email Address</label>
+              <input
+                type="email"
+                id="email"
+                className="form-control"
+                placeholder={emailPlaceholder}
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setError(''); }}
+                disabled={submitting}
+                autoComplete="email"
+                style={styles.input}
+              />
+            </div>
+
+            <div className="form-group" style={{ position: 'relative' }}>
+              <label className="form-label" htmlFor="password">Password</label>
+              <div style={styles.pwdWrapper}>
+                <input
+                  type={showPwd ? 'text' : 'password'}
+                  id="password"
+                  className="form-control"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); setError(''); }}
+                  disabled={submitting}
+                  autoComplete="current-password"
+                  style={{ ...styles.input, paddingRight: '44px' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPwd(p => !p)}
+                  style={styles.eyeBtn}
+                  tabIndex={-1}
+                  aria-label={showPwd ? 'Hide password' : 'Show password'}
+                >
+                  {showPwd
+                    ? <EyeOff size={17} color="#6b7280" />
+                    : <Eye    size={17} color="#6b7280" />
+                  }
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="btn btn-primary"
+              style={styles.submitBtn}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <>
+                  <Loader2 size={17} style={styles.spinner} />
+                  Authenticating…
+                </>
+              ) : (
+                <>
+                  Sign In
+                  <ArrowRight size={16} />
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* ── Divider ── */}
+          <div style={styles.dividerRow}>
+            <div style={styles.dividerLine} />
+            <span style={styles.dividerText}>Portal Selection</span>
+            <div style={styles.dividerLine} />
+          </div>
+
+          {/* ── Role Selection Grid (Second Section) ── */}
+          <div style={styles.roleGrid}>
+            {roles.map(({ key, label, color, glow, borderGlow }) => {
+              const isSelected = selectedRole === key;
+              return (
+                <button
+                  type="button"
+                  key={key}
+                  onClick={() => { setSelectedRole(key); setError(''); }}
+                  style={{
+                    ...styles.roleBtn,
+                    borderColor: isSelected ? color : 'rgba(75, 85, 99, 0.25)',
+                    backgroundColor: isSelected ? glow : 'rgba(17, 24, 39, 0.4)',
+                    boxShadow: isSelected ? `0 0 12px ${glow}` : 'none',
+                  }}
+                  disabled={submitting}
+                >
+                  <span style={{ color: isSelected ? color : '#6b7280', transition: 'color 0.2s', display: 'flex', alignItems: 'center' }}>
+                    {renderRoleIcon(key, 16)}
+                  </span>
+                  <span style={{
+                    fontWeight: isSelected ? '700' : '500',
+                    color: isSelected ? '#ffffff' : '#9ca3af',
+                    fontSize: '0.82rem',
+                    transition: 'all 0.2s',
+                  }}>
+                    {label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-
-        {/* ── Footer note ── */}
-        <p style={styles.footerNote}>
-          Demo password for all accounts: <code style={styles.code}>password123</code>
-        </p>
-      </div>
+      )}
 
       {/* ── Shake + Spinner keyframes injected inline ── */}
       <style>{`
@@ -229,6 +302,13 @@ const Login = () => {
         @keyframes spin {
           from { transform: rotate(0deg); }
           to   { transform: rotate(360deg); }
+        }
+        @keyframes progressFill {
+          0% { stroke-dashoffset: 326.72; }
+          100% { stroke-dashoffset: 0; }
+        }
+        .animate-progress-fill {
+          animation: progressFill 2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
         }
       `}</style>
     </div>
@@ -275,7 +355,7 @@ const styles = {
   },
   header: {
     textAlign: 'center',
-    marginBottom: '28px',
+    marginBottom: '24px',
   },
   logoIcon: {
     width: '56px',
@@ -331,7 +411,7 @@ const styles = {
     marginBottom: '20px',
   },
 
-  form: { marginBottom: '20px' },
+  form: { marginBottom: '0px' },
 
   input: {
     width: '100%',
@@ -365,7 +445,7 @@ const styles = {
     padding: '13px',
     fontSize: '0.95rem',
     fontWeight: '600',
-    marginTop: '6px',
+    marginTop: '12px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -382,7 +462,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: '10px',
-    margin: '20px 0 16px',
+    margin: '24px 0 16px',
   },
   dividerLine: {
     flex: 1,
@@ -398,37 +478,72 @@ const styles = {
     whiteSpace: 'nowrap',
   },
 
-  /* Quick login grid */
-  quickLoginGrid: {
+  /* Role Selection */
+  roleGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, 1fr)',
     gap: '10px',
   },
-  quickBtn: {
-    fontSize: '0.83rem',
+  roleBtn: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     gap: '8px',
     padding: '11px 14px',
-    transition: 'all 0.2s',
+    borderRadius: '8px',
+    border: '1px solid',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    outline: 'none',
     minHeight: '42px',
   },
 
-  footerNote: {
-    textAlign: 'center',
-    fontSize: '0.72rem',
-    color: '#4b5563',
-    marginTop: '18px',
-    marginBottom: '0',
+  /* Fullscreen Loader */
+  fullscreenLoader: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100vw',
+    height: '100vh',
+    background: '#0b0f19',
+    zIndex: 1000,
+    fontFamily: "'Inter', sans-serif",
   },
-  code: {
-    backgroundColor: 'rgba(99,102,241,0.12)',
-    color: '#a5b4fc',
-    padding: '1px 6px',
-    borderRadius: '4px',
-    fontFamily: 'monospace',
-    fontSize: '0.75rem',
+  spinnerWrapperLarge: {
+    position: 'relative',
+    width: '120px',
+    height: '120px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: '28px',
+  },
+  svgRingLarge: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  spinnerCenterIconLarge: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  redirectTitleLarge: {
+    fontSize: '1.5rem',
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: '8px',
+    letterSpacing: '-0.3px',
+  },
+  redirectSubLarge: {
+    fontSize: '0.95rem',
+    color: '#9ca3af',
+    minHeight: '24px',
   },
 };
 

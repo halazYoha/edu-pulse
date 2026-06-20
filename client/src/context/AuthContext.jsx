@@ -2,12 +2,41 @@ import React, { createContext, useState, useEffect, useContext } from 'react';
 
 const AuthContext = createContext();
 
-export const API_BASE_URL = 'https://edu-pulse-z6w4.onrender.com/api';
+export const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? 'http://localhost:5000/api'
+  : 'https://edu-pulse-z6w4.onrender.com/api';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('edupulse_token') || null);
   const [loading, setLoading] = useState(true);
+  const [settings, setSettings] = useState({
+    school_name: 'EduPulse School',
+    currency: 'USD',
+    currency_symbol: '$',
+    country: 'US',
+    timezone: 'America/New_York'
+  });
+
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/settings`);
+      if (res.ok) {
+        const data = await res.json();
+        // Only set settings if not empty
+        if (data && Object.keys(data).length > 0) {
+          setSettings(prev => ({ ...prev, ...data }));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load system settings:', err);
+    }
+  };
+
+  // Fetch settings on mount
+  useEffect(() => {
+    fetchSettings();
+  }, []);
 
   // Validate session token on mount
   useEffect(() => {
@@ -41,32 +70,31 @@ export const AuthProvider = ({ children }) => {
     fetchCurrentUser();
   }, [token]);
 
-  // Login handler
-  const login = async (email, password) => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email, password })
-      });
+  // Login handler (pure API call, session set is deferred for smooth transitions)
+  const login = async (email, password, role) => {
+    const res = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, password, role })
+    });
 
-      const data = await res.json();
+    const data = await res.json();
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Authentication failed');
-      }
-
-      localStorage.setItem('edupulse_token', data.token);
-      setToken(data.token);
-      setUser(data.user);
-      return data.user;
-    } catch (err) {
-      setLoading(false);
-      throw err;
+    if (!res.ok) {
+      throw new Error(data.error || 'Authentication failed');
     }
+
+    return data; // returns { token, user }
+  };
+
+  // Set active authentication session
+  const setAuthSession = (token, user) => {
+    localStorage.setItem('edupulse_token', token);
+    setToken(token);
+    setUser(user);
+    setLoading(false);
   };
 
   // Logout handler
@@ -81,8 +109,11 @@ export const AuthProvider = ({ children }) => {
     user,
     token,
     loading,
+    settings,
+    refreshSettings: fetchSettings,
     login,
     logout,
+    setAuthSession,
     apiFetch: async (endpoint, options = {}) => {
       const headers = {
         'Content-Type': 'application/json',

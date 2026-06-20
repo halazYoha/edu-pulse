@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
   School, LogOut, LayoutDashboard, Users, BookOpen, 
-  CreditCard, Calendar, BarChart3, Bell, CheckSquare, Award, Menu, X
+  CreditCard, Calendar, BarChart3, Bell, CheckSquare, Award, Menu, X, Settings
 } from 'lucide-react';
 
 const Layout = ({ activeTab, setActiveTab, children }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, settings } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   if (!user) return null;
@@ -20,6 +20,7 @@ const Layout = ({ activeTab, setActiveTab, children }) => {
           { id: 'users', label: 'Manage Users', icon: Users },
           { id: 'classes', label: 'Classes & Timetable', icon: BookOpen },
           { id: 'finances', label: 'Fee Invoices', icon: CreditCard },
+          { id: 'settings', label: 'System Settings', icon: Settings },
         ];
       case 'teacher':
         return [
@@ -65,7 +66,7 @@ const Layout = ({ activeTab, setActiveTab, children }) => {
       <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-logo">
           <School size={24} color="#6366f1" />
-          <span>EduPulse ERP</span>
+          <span>{settings.school_name || 'EduPulse ERP'}</span>
           <button 
             className="menu-close-btn"
             style={styles.mobileOnlyBtn}

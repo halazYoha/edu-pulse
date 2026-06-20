@@ -103,7 +103,8 @@ const initDatabase = async () => {
         amount NUMERIC(10, 2) NOT NULL,
         status VARCHAR(20) NOT NULL CHECK (status IN ('paid', 'pending')) DEFAULT 'pending',
         due_date DATE NOT NULL,
-        paid_date TIMESTAMP
+        paid_date TIMESTAMP,
+        payment_method VARCHAR(50) DEFAULT 'chappa' CHECK (payment_method IN ('chappa', 'telebirr', 'cbe', 'cash', 'bank_transfer'))
       );
     `);
 

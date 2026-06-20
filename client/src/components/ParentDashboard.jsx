@@ -7,7 +7,14 @@ import {
 } from 'lucide-react';
 
 const ParentDashboard = ({ activeTab }) => {
-  const { apiFetch } = useAuth();
+  const { apiFetch, settings } = useAuth();
+
+  const formatCurrency = (amount) => {
+    const sym = settings?.currency_symbol || '$';
+    try {
+      return new Intl.NumberFormat(undefined, { style: 'currency', currency: settings?.currency || 'USD' }).format(amount);
+    } catch { return `${sym}${parseFloat(amount || 0).toFixed(2)}`; }
+  };
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -54,7 +61,7 @@ const ParentDashboard = ({ activeTab }) => {
     setPaymentSubmitting(true);
     try {
       await apiFetch(`/parent/fees/${payingInvoice.id}/pay`, { method: 'POST' });
-      showToast('success', `Payment of $${payingInvoice.amount} for "${payingInvoice.title}" processed successfully!`);
+      showToast('success', `Payment of ${formatCurrency(payingInvoice.amount)} for "${payingInvoice.title}" processed successfully!`);
       setPayingInvoice(null);
       loadParentData();
     } catch (err) {
@@ -160,7 +167,7 @@ const ParentDashboard = ({ activeTab }) => {
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-                      <span style={{ fontWeight: '700', fontSize: '0.95rem' }}>${parseFloat(fee.amount).toFixed(2)}</span>
+                      <span style={{ fontWeight: '700', fontSize: '0.95rem' }}>{formatCurrency(fee.amount)}</span>
                       <button 
                         className="btn btn-primary animate-fade-in" 
                         style={{ padding: '7px 12px', fontSize: '0.75rem', whiteSpace: 'nowrap' }}
@@ -287,7 +294,7 @@ const ParentDashboard = ({ activeTab }) => {
                           </div>
                         )}
                       </td>
-                      <td>${parseFloat(fee.amount).toFixed(2)}</td>
+                      <td>{formatCurrency(fee.amount)}</td>
                       <td>{new Date(fee.due_date).toLocaleDateString()}</td>
                       <td>
                         <span className={`badge ${fee.status === 'paid' ? 'badge-success' : 'badge-warning'}`}>
@@ -314,7 +321,7 @@ const ParentDashboard = ({ activeTab }) => {
             <div className="glass-card animate-fade-in">
               <h3 style={styles.cardHeader}><CreditCard size={18} /> Checkout Portal</h3>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-                You are paying <strong>${parseFloat(payingInvoice.amount).toFixed(2)}</strong> for <strong>"{payingInvoice.title}"</strong>.
+                You are paying <strong>{formatCurrency(payingInvoice.amount)}</strong> for <strong>"{payingInvoice.title}"</strong>.
               </p>
               
               <form onSubmit={handleProcessPayment}>
@@ -383,7 +390,7 @@ const ParentDashboard = ({ activeTab }) => {
                   >
                     {paymentSubmitting
                       ? <><Loader2 size={15} style={{ animation:'spin 0.8s linear infinite' }} /> Processing...</>
-                      : `Pay $${parseFloat(payingInvoice.amount).toFixed(2)}`}
+                      : `Pay ${formatCurrency(payingInvoice.amount)}`}
                   </button>
                 </div>
               </form>

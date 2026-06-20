@@ -9,7 +9,7 @@ const router = express.Router();
 // @route   POST api/auth/login
 // @desc    Authenticate user & get token
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, role } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Please provide email and password' });
@@ -28,6 +28,13 @@ router.post('/login', async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ error: 'Invalid email or password' });
+    }
+
+    // Verify selected role matches database user's role
+    if (role && user.role !== role) {
+      return res.status(403).json({
+        error: `Access denied: The credentials provided do not belong to the ${role.charAt(0).toUpperCase() + role.slice(1)} portal.`
+      });
     }
 
     // Sign JWT

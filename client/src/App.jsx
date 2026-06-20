@@ -8,7 +8,7 @@ import StudentDashboard from './components/StudentDashboard';
 import ParentDashboard from './components/ParentDashboard';
 
 const AppContent = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, settings } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
 
   // Reset navigation sub-tabs when the user logs in or switches accounts
@@ -19,9 +19,34 @@ const AppContent = () => {
   if (loading) {
     return (
       <div style={styles.spinnerContainer}>
-        <div style={styles.spinner}></div>
-        <p style={{ marginTop: '16px', color: '#9ca3af', fontSize: '0.95rem' }}>
-          Loading EduPulse ERP Portal...
+        <div style={styles.spinnerWrapper}>
+          <svg style={styles.svgRing} width="80" height="80" viewBox="0 0 80 80">
+            <circle
+              cx="40"
+              cy="40"
+              r="34"
+              stroke="rgba(255, 255, 255, 0.03)"
+              strokeWidth="5"
+              fill="transparent"
+            />
+            <circle
+              cx="40"
+              cy="40"
+              r="34"
+              stroke="#6366f1"
+              strokeWidth="5"
+              fill="transparent"
+              strokeDasharray="213.6"
+              strokeDashoffset="70"
+              className="animate-spin-fast"
+              style={{
+                transformOrigin: '50% 50%',
+              }}
+            />
+          </svg>
+        </div>
+        <p style={{ marginTop: '20px', color: '#9ca3af', fontSize: '0.95rem', letterSpacing: '0.5px' }}>
+          Loading {settings.school_name || 'EduPulse ERP'} Portal...
         </p>
       </div>
     );
@@ -72,12 +97,15 @@ const styles = {
     background: '#0b0f19',
     fontFamily: "'Inter', sans-serif",
   },
-  spinner: {
-    width: '40px',
-    height: '40px',
-    border: '4px solid rgba(99, 102, 241, 0.1)',
-    borderTop: '4px solid var(--primary)',
-    borderRadius: '50%',
+  spinnerWrapper: {
+    position: 'relative',
+    width: '80px',
+    height: '80px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  svgRing: {
     animation: 'spin 1s linear infinite',
   }
 };

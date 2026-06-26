@@ -6,7 +6,7 @@ import {
   Megaphone, ShieldAlert, CheckCircle, Clock, Loader2
 } from 'lucide-react';
 
-const ParentDashboard = ({ activeTab }) => {
+const ParentDashboard = ({ activeTab, setActiveTab }) => {
   const { apiFetch, settings } = useAuth();
 
   const formatCurrency = (amount) => {
@@ -49,7 +49,10 @@ const ParentDashboard = ({ activeTab }) => {
 
   const handlePayInvoiceClick = (invoice) => {
     setPayingInvoice(invoice);
-    setSelectedPaymentMethod('telebirr');
+    setSelectedPaymentMethod('chappa');
+    if (setActiveTab) {
+      setActiveTab('payments');
+    }
   };
 
   const handleProcessPayment = async (e) => {
@@ -219,7 +222,7 @@ const ParentDashboard = ({ activeTab }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {currentChild.attendance?.map((att, idx) => (
+                  {currentChild.attendance?.records?.map((att, idx) => (
                     <tr key={idx}>
                       <td>{new Date(att.date).toLocaleDateString()}</td>
                       <td style={{ textAlign: 'right' }}>
@@ -230,7 +233,7 @@ const ParentDashboard = ({ activeTab }) => {
                       </td>
                     </tr>
                   ))}
-                  {(!currentChild.attendance || currentChild.attendance.length === 0) && (
+                  {(!currentChild.attendance?.records || currentChild.attendance.records.length === 0) && (
                     <tr>
                       <td colSpan="2" style={{ textAlign: 'center', color: '#6b7280' }}>
                         No attendance records logged.
@@ -311,10 +314,21 @@ const ParentDashboard = ({ activeTab }) => {
                       <td>{formatCurrency(fee.amount)}</td>
                       <td>{new Date(fee.due_date).toLocaleDateString()}</td>
                       <td>
-                        <span className={`badge ${fee.status === 'paid' ? 'badge-success' : 'badge-warning'}`}>
-                          {fee.status === 'paid' ? <CheckCircle size={12} style={{ marginRight: '4px' }} /> : <Clock size={12} style={{ marginRight: '4px' }} />}
-                          {fee.status}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span className={`badge ${fee.status === 'paid' ? 'badge-success' : 'badge-warning'}`}>
+                            {fee.status === 'paid' ? <CheckCircle size={12} style={{ marginRight: '4px' }} /> : <Clock size={12} style={{ marginRight: '4px' }} />}
+                            {fee.status}
+                          </span>
+                          {fee.status === 'pending' && (
+                            <button
+                              className="btn btn-primary"
+                              style={{ padding: '4px 8px', fontSize: '0.7rem' }}
+                              onClick={() => handlePayInvoiceClick(fee)}
+                            >
+                              Pay
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -407,7 +421,7 @@ const ParentDashboard = ({ activeTab }) => {
                   >
                     {paymentSubmitting
                       ? <><Loader2 size={15} style={{ animation:'spin 0.8s linear infinite' }} /> Processing...</>
-                      : `Pay with ${selectedPaymentMethod === 'telebirr' ? 'Tele Birr' : 'CBE Birr'}`}
+                      : `Pay with ${selectedPaymentMethod === 'chappa' ? 'Chapa' : selectedPaymentMethod === 'telebirr' ? 'Tele Birr' : 'CBE Birr'}`}
                   </button>
                 </div>
               </form>

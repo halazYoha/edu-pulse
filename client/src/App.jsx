@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './components/Login';
 import Layout from './components/Layout';
@@ -6,10 +7,13 @@ import AdminDashboard from './components/AdminDashboard';
 import TeacherDashboard from './components/TeacherDashboard';
 import StudentDashboard from './components/StudentDashboard';
 import ParentDashboard from './components/ParentDashboard';
+import PaymentCallback from './components/PaymentCallback';
 
 const AppContent = () => {
   const { user, loading, settings } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Reset navigation sub-tabs when the user logs in or switches accounts
   useEffect(() => {
@@ -39,9 +43,7 @@ const AppContent = () => {
               strokeDasharray="213.6"
               strokeDashoffset="70"
               className="animate-spin-fast"
-              style={{
-                transformOrigin: '50% 50%',
-              }}
+              style={{ transformOrigin: '50% 50%' }}
             />
           </svg>
         </div>
@@ -66,24 +68,47 @@ const AppContent = () => {
       case 'student':
         return <StudentDashboard activeTab={activeTab} />;
       case 'parent':
-        return <ParentDashboard activeTab={activeTab} />;
+        return <ParentDashboard activeTab={activeTab} setActiveTab={setActiveTab} />;
       default:
         return <div>Invalid User Role configured. Please contact the IT admin.</div>;
     }
   };
 
   return (
-    <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
-      {renderDashboard()}
-    </Layout>
+    <Routes>
+      {/* Payment callback — Chapa redirects here after checkout */}
+      <Route
+        path="/payment/callback"
+        element={
+          <PaymentCallback
+            onGoBack={() => {
+              // Clear Chapa query params and return to parent dashboard
+              navigate('/', { replace: true });
+            }}
+          />
+        }
+      />
+
+      {/* Main app shell */}
+      <Route
+        path="*"
+        element={
+          <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
+            {renderDashboard()}
+          </Layout>
+        }
+      />
+    </Routes>
   );
 };
 
 const App = () => {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </BrowserRouter>
   );
 };
 
@@ -126,3 +151,4 @@ if (styleSheet) {
 }
 
 export default App;
+

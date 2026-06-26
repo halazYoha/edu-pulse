@@ -154,7 +154,7 @@ router.get('/', verifyToken, async (req, res) => {
 
       const children = [];
       for (const child of childrenRes.rows) {
-        // Attendance
+        // Attendance stats
         const attStats = await pool.query(`
           SELECT 
             COUNT(*) as total_days,
@@ -166,6 +166,14 @@ router.get('/', verifyToken, async (req, res) => {
         const total = parseInt(attStats.rows[0].total_days || 0);
         const present = parseInt(attStats.rows[0].present_days || 0);
         const late = parseInt(attStats.rows[0].late_days || 0);
+
+        // Attendance records (for the table)
+        const attRecordsRes = await pool.query(`
+          SELECT date, status 
+          FROM edupulse_attendance 
+          WHERE student_id = $1 
+          ORDER BY date DESC
+        `, [child.id]);
         
         // Grades
         const gradesRes = await pool.query(`
@@ -188,7 +196,8 @@ router.get('/', verifyToken, async (req, res) => {
         children.push({
           ...child,
           attendance: {
-            percentage: total > 0 ? Math.round(((present + (late * 0.5)) / total) * 100) : 100
+            percentage: total > 0 ? Math.round(((present + (late * 0.5)) / total) * 100) : 100,
+            records: attRecordsRes.rows
           },
           grades: gradesRes.rows,
           gpaAverage: Math.round(avgGrade * 10) / 10,

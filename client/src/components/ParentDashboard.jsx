@@ -22,7 +22,7 @@ const ParentDashboard = ({ activeTab }) => {
   // Selection states
   const [selectedChildIndex, setSelectedChildIndex] = useState(0);
   const [payingInvoice, setPayingInvoice] = useState(null);
-  const [cardForm, setCardForm] = useState({ number: '', expiry: '', cvc: '', name: '' });
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('chappa');
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
 
   const [toast, setToast] = useState({ type: 'success', message: '' });
@@ -49,24 +49,38 @@ const ParentDashboard = ({ activeTab }) => {
 
   const handlePayInvoiceClick = (invoice) => {
     setPayingInvoice(invoice);
-    setCardForm({ number: '', expiry: '', cvc: '', name: '' });
+    setSelectedPaymentMethod('telebirr');
   };
 
   const handleProcessPayment = async (e) => {
     e.preventDefault();
-    if (!cardForm.name.trim())   { showToast('error', 'Please enter the name on card.'); return; }
-    if (!cardForm.number.trim()) { showToast('error', 'Please enter a valid card number.'); return; }
-    if (!cardForm.expiry.trim()) { showToast('error', 'Please enter card expiry date.'); return; }
-    if (!cardForm.cvc.trim())    { showToast('error', 'Please enter the security code.'); return; }
     setPaymentSubmitting(true);
+    
     try {
-      await apiFetch(`/parent/fees/${payingInvoice.id}/pay`, { method: 'POST' });
-      showToast('success', `Payment of ${formatCurrency(payingInvoice.amount)} for "${payingInvoice.title}" processed successfully!`);
-      setPayingInvoice(null);
-      loadParentData();
+      // Call backend to initialize Chapa payment
+      const response = await apiFetch(`/parent/fees/${payingInvoice.id}/pay`, {
+        method: 'POST',
+        body: JSON.stringify({ payment_method: selectedPaymentMethod })
+      });
+
+      if (response.checkout_url) {
+        // Store payment info for callback handling
+        localStorage.setItem('pendingPayment', JSON.stringify({
+          feeId: payingInvoice.id,
+          tx_ref: response.tx_ref,
+          paymentMethod: selectedPaymentMethod
+        }));
+        
+        // Redirect to Chapa checkout
+        window.location.href = response.checkout_url;
+      } else {
+        showToast('error', 'Failed to initialize payment. Please try again.');
+        setPaymentSubmitting(false);
+      }
     } catch (err) {
-      showToast('error', err.message || 'Payment processing failed.');
-    } finally { setPaymentSubmitting(false); }
+      showToast('error', err.message || 'Failed to initiate payment. Please try again.');
+      setPaymentSubmitting(false);
+    }
   };
 
   if (loading && !data) return <div style={styles.loader}>Loading parent environment...</div>;
@@ -319,57 +333,60 @@ const ParentDashboard = ({ activeTab }) => {
           {/* Checkout Mockup Form */}
           {payingInvoice ? (
             <div className="glass-card animate-fade-in">
-              <h3 style={styles.cardHeader}><CreditCard size={18} /> Checkout Portal</h3>
+              <h3 style={styles.cardHeader}><CreditCard size={18} /> Payment Checkout</h3>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
                 You are paying <strong>{formatCurrency(payingInvoice.amount)}</strong> for <strong>"{payingInvoice.title}"</strong>.
               </p>
               
               <form onSubmit={handleProcessPayment}>
                 <div className="form-group">
-                  <label className="form-label">Name on Card</label>
-                  <input 
-                    type="text" 
-                    className="form-control" 
-                    placeholder="e.g. John Mercer" 
-                    value={cardForm.name}
-                    onChange={(e) => setCardForm({ ...cardForm, name: e.target.value })}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Card Number</label>
-                  <input 
-                    type="text" 
-                    className="form-control" 
-                    maxLength="19"
-                    placeholder="e.g. 4111 2222 3333 4444" 
-                    value={cardForm.number}
-                    onChange={(e) => setCardForm({ ...cardForm, number: e.target.value })}
-                  />
-                </div>
-
-                <div className="filter-bar" style={{ marginBottom: 0 }}>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">Expiry (MM/YY)</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      maxLength="5"
-                      placeholder="12/28" 
-                      value={cardForm.expiry}
-                      onChange={(e) => setCardForm({ ...cardForm, expiry: e.target.value })}
-                    />
+                  <label className="form-label">Select Payment Method</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                    <button
+                      type="button"
+                      className={`btn ${selectedPaymentMethod === 'chappa' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}
+                      onClick={() => setSelectedPaymentMethod('chappa')}
+                    >
+                      <div style={{ fontSize: '1.5rem', fontWeight: '700' }}>Chappa</div>
+                      <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>Digital Payment</div>
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn ${selectedPaymentMethod === 'telebirr' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}
+                      onClick={() => setSelectedPaymentMethod('telebirr')}
+                    >
+                      <div style={{ fontSize: '1.5rem', fontWeight: '700' }}>Tele Birr</div>
+                      <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>Mobile Money</div>
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn ${selectedPaymentMethod === 'cbe' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}
+                      onClick={() => setSelectedPaymentMethod('cbe')}
+                    >
+                      <div style={{ fontSize: '1.5rem', fontWeight: '700' }}>CBE Birr</div>
+                      <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>Bank App</div>
+                    </button>
                   </div>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">Security Code (CVC)</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      maxLength="3"
-                      placeholder="382" 
-                      value={cardForm.cvc}
-                      onChange={(e) => setCardForm({ ...cardForm, cvc: e.target.value })}
-                    />
+                </div>
+
+                <div style={{ backgroundColor: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.3)', borderRadius: '8px', padding: '16px', marginBottom: '20px' }}>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                    <strong>Payment Summary:</strong>
+                  </p>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '0.85rem' }}>Invoice:</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: '600' }}>{payingInvoice.title}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '0.85rem' }}>Amount:</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--primary)' }}>{formatCurrency(payingInvoice.amount)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '0.85rem' }}>Payment Method:</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: '600', textTransform: 'uppercase' }}>{selectedPaymentMethod}</span>
                   </div>
                 </div>
 
@@ -390,7 +407,7 @@ const ParentDashboard = ({ activeTab }) => {
                   >
                     {paymentSubmitting
                       ? <><Loader2 size={15} style={{ animation:'spin 0.8s linear infinite' }} /> Processing...</>
-                      : `Pay ${formatCurrency(payingInvoice.amount)}`}
+                      : `Pay with ${selectedPaymentMethod === 'telebirr' ? 'Tele Birr' : 'CBE Birr'}`}
                   </button>
                 </div>
               </form>
